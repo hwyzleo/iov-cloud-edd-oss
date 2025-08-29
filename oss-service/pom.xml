@@ -33,6 +33,12 @@
             <version>${framework-exception.version}</version>
         </dependency>
 
+        <!-- 框架: MySQL -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.framework</groupId>
+            <artifactId>framework-mysql-starter</artifactId>
+        </dependency>
+
         <!-- 腾讯云COS -->
         <dependency>
             <groupId>com.qcloud</groupId>
