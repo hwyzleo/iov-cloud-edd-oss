@@ -4,6 +4,7 @@ import com.qcloud.cos.COSClient;
 import com.qcloud.cos.exception.CosClientException;
 import com.qcloud.cos.exception.CosServiceException;
 import com.qcloud.cos.http.HttpMethodName;
+import com.qcloud.cos.model.CopyObjectRequest;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.model.ObjectMetadata;
 import net.hwyz.iov.cloud.edd.oss.service.common.exception.OssErrorCode;
@@ -18,6 +19,7 @@ import org.mockito.ArgumentCaptor;
 import java.net.URL;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -150,6 +152,55 @@ class CosObjectStorageGatewayTest {
     void buildPublicUrlStandardKey() {
         assertEquals("https://" + BUCKET + ".cos.ap-shanghai.myqcloud.com/" + KEY,
                 gateway.buildPublicUrl("ap-shanghai", BUCKET, KEY));
+    }
+
+    @Test
+    @DisplayName("复制：显式传递源与目标 Bucket，并设置 ETag 一致性条件")
+    void copyObjectWithEtagConstraint() {
+        gateway.copyObject(BUCKET, "source.jpg", BUCKET, "destination.jpg", "\"etag-1\"");
+        ArgumentCaptor<CopyObjectRequest> captor = ArgumentCaptor.forClass(CopyObjectRequest.class);
+        verify(cosClient).copyObject(captor.capture());
+        CopyObjectRequest request = captor.getValue();
+        assertEquals(BUCKET, request.getSourceBucketName());
+        assertEquals("source.jpg", request.getSourceKey());
+        assertEquals(BUCKET, request.getDestinationBucketName());
+        assertEquals("destination.jpg", request.getDestinationKey());
+        assertEquals(List.of("\"etag-1\""), request.getMatchingETagConstraints());
+    }
+
+    @Test
+    @DisplayName("复制：ETag 为空时不设置条件")
+    void copyObjectWithoutEtagConstraint() {
+        gateway.copyObject(BUCKET, "source.jpg", BUCKET, "destination.jpg", null);
+        ArgumentCaptor<CopyObjectRequest> captor = ArgumentCaptor.forClass(CopyObjectRequest.class);
+        verify(cosClient).copyObject(captor.capture());
+        assertTrue(captor.getValue().getMatchingETagConstraints() == null
+                || captor.getValue().getMatchingETagConstraints().isEmpty());
+    }
+
+    @Test
+    @DisplayName("复制条件冲突映射为 OSS-409004，不误判为对象不存在")
+    void copyObjectConflict() {
+        CosServiceException conflict = new CosServiceException("precondition failed");
+        conflict.setStatusCode(412);
+        doThrow(conflict).when(cosClient).copyObject(any(CopyObjectRequest.class));
+        OssException exception = assertThrows(OssException.class,
+                () -> gateway.copyObject(BUCKET, "source.jpg", BUCKET, "destination.jpg", "etag"));
+        assertEquals(OssErrorCode.REPLACEMENT_CONFLICT, exception.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("复制服务端与网络异常映射为存储网关异常")
+    void copyObjectFailure() {
+        CosServiceException serverError = new CosServiceException("server error");
+        serverError.setStatusCode(500);
+        doThrow(serverError).when(cosClient).copyObject(any(CopyObjectRequest.class));
+        assertEquals(OssErrorCode.STORAGE_ERROR, assertStorageFailure(
+                () -> gateway.copyObject(BUCKET, "source.jpg", BUCKET, "destination.jpg", null)));
+
+        doThrow(new CosClientException("timeout")).when(cosClient).copyObject(any(CopyObjectRequest.class));
+        assertEquals(OssErrorCode.STORAGE_ERROR, assertStorageFailure(
+                () -> gateway.copyObject(BUCKET, "source.jpg", BUCKET, "destination.jpg", null)));
     }
 
     private OssErrorCode assertStorageFailure(org.junit.jupiter.api.function.Executable executable) {

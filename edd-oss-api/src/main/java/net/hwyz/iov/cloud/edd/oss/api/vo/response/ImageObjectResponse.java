@@ -22,6 +22,14 @@ public class ImageObjectResponse {
 
     private String objectId;
     private String serviceName;
+    /**
+     * 默认素材名称；业务图片为空（仅 MPT 响应返回）
+     */
+    private String assetName;
+    /**
+     * 默认素材备注（仅 MPT 响应返回）
+     */
+    private String description;
     private String originalFilename;
     private String objectKey;
     private String provider;

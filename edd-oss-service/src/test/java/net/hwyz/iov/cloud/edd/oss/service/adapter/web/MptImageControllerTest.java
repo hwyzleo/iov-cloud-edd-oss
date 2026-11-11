@@ -4,6 +4,9 @@ import com.github.pagehelper.PageHelper;
 import net.hwyz.iov.cloud.edd.oss.service.adapter.web.controller.mpt.MptImageController;
 import net.hwyz.iov.cloud.edd.oss.service.application.dto.query.ImageObjectQuery;
 import net.hwyz.iov.cloud.edd.oss.service.application.dto.result.ImageObjectResult;
+import net.hwyz.iov.cloud.edd.oss.service.application.dto.result.ImageReplacementUploadResult;
+import net.hwyz.iov.cloud.edd.oss.service.application.dto.result.ImageUploadResult;
+import net.hwyz.iov.cloud.edd.oss.service.application.service.DefaultAssetAppService;
 import net.hwyz.iov.cloud.edd.oss.service.application.service.ImageAppService;
 import net.hwyz.iov.cloud.edd.oss.service.common.exception.OssErrorCode;
 import net.hwyz.iov.cloud.edd.oss.service.common.exception.OssException;
@@ -21,8 +24,11 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
@@ -32,11 +38,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -50,12 +59,14 @@ class MptImageControllerTest {
     private static final String BASE_PATH = "/api/mpt/image/v1/objects";
 
     private ImageAppService imageAppService;
+    private DefaultAssetAppService defaultAssetAppService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         imageAppService = mock(ImageAppService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new MptImageController(imageAppService))
+        defaultAssetAppService = mock(DefaultAssetAppService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new MptImageController(imageAppService, defaultAssetAppService))
                 .setControllerAdvice(new OssExceptionHandler())
                 .build();
     }
@@ -150,6 +161,11 @@ class MptImageControllerTest {
         assertPermission("detail", "oss:image:query");
         assertPermission("preview", "oss:image:preview");
         assertPermission("remove", "oss:image:remove");
+        assertPermission("generateDefaultAsset", "oss:image:upload");
+        assertPermission("completeDefaultAsset", "oss:image:upload");
+        assertPermission("updateAsset", "oss:image:edit");
+        assertPermission("generateReplacement", "oss:image:replace");
+        assertPermission("completeReplacement", "oss:image:replace");
         Method remove = MptImageController.class.getMethod("remove", String.class);
         Log log = remove.getAnnotation(Log.class);
         assertNotNull(log);
@@ -159,6 +175,108 @@ class MptImageControllerTest {
                 .getAnnotation(GetMapping.class));
         assertNotNull(MptImageController.class.getMethod("remove", String.class)
                 .getAnnotation(DeleteMapping.class));
+        assertNotNull(MptImageController.class.getMethod("generateDefaultAsset",
+                        net.hwyz.iov.cloud.edd.oss.service.adapter.web.vo.request.GenerateDefaultAssetRequest.class)
+                .getAnnotation(PostMapping.class));
+        assertNotNull(MptImageController.class.getMethod("updateAsset", String.class,
+                        net.hwyz.iov.cloud.edd.oss.service.adapter.web.vo.request.UpdateDefaultAssetRequest.class)
+                .getAnnotation(PutMapping.class));
+        assertNotNull(MptImageController.class.getMethod("completeReplacement", String.class, String.class)
+                .getAnnotation(Log.class));
+    }
+
+    @Test
+    @DisplayName("默认素材上传：操作人来自 SecurityUtils，返回上传参数")
+    void generateDefaultAsset() throws Exception {
+        SecurityContextHolder.setUserId("1001");
+        SecurityContextHolder.setUserName("admin");
+        when(defaultAssetAppService.generate(any(), eq("1001"))).thenReturn(ImageUploadResult.builder()
+                .objectId("object-1")
+                .objectKey("images/edd-oss/object-1.png")
+                .uploadUrl("https://signed")
+                .httpMethod("PUT")
+                .contentType("image/png")
+                .expiresAt(Instant.ofEpochMilli(1762757400000L))
+                .build());
+        mockMvc.perform(post(BASE_PATH + "/uploads")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"assetName\":\"默认头像\",\"description\":\"备注\","
+                                + "\"originalFilename\":\"avatar.png\",\"contentType\":\"image/png\","
+                                + "\"size\":204800}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.objectId").value("object-1"))
+                .andExpect(jsonPath("$.data.httpMethod").value("PUT"))
+                .andExpect(jsonPath("$.data.expiresAt").value(1762757400000L));
+        verify(defaultAssetAppService).generate(any(), eq("1001"));
+    }
+
+    @Test
+    @DisplayName("完成默认素材上传：返回素材名称与备注")
+    void completeDefaultAsset() throws Exception {
+        SecurityContextHolder.setUserId("1001");
+        ImageObjectResult result = result("object-1", ImageStatus.UPLOADED);
+        result.setServiceName("edd-oss");
+        result.setAssetName("默认头像");
+        result.setDescription("备注");
+        when(defaultAssetAppService.complete("object-1", "1001")).thenReturn(result);
+        mockMvc.perform(post(BASE_PATH + "/uploads/object-1/complete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.assetName").value("默认头像"))
+                .andExpect(jsonPath("$.data.description").value("备注"));
+    }
+
+    @Test
+    @DisplayName("编辑默认素材：传入 objectId 与操作人")
+    void updateAsset() throws Exception {
+        SecurityContextHolder.setUserId("1001");
+        ImageObjectResult result = result("object-1", ImageStatus.UPLOADED);
+        result.setAssetName("新名称");
+        when(defaultAssetAppService.updateAsset(any(), eq("1001"))).thenReturn(result);
+        mockMvc.perform(put(BASE_PATH + "/object-1/asset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"assetName\":\"新名称\",\"description\":\"新备注\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.assetName").value("新名称"));
+        ArgumentCaptor<net.hwyz.iov.cloud.edd.oss.service.application.dto.cmd.UpdateDefaultAssetCmd> captor =
+                ArgumentCaptor.forClass(
+                        net.hwyz.iov.cloud.edd.oss.service.application.dto.cmd.UpdateDefaultAssetCmd.class);
+        verify(defaultAssetAppService).updateAsset(captor.capture(), eq("1001"));
+        assertEquals("object-1", captor.getValue().getObjectId());
+    }
+
+    @Test
+    @DisplayName("创建替换任务：返回 replacementId 与原稳定对象键")
+    void generateReplacement() throws Exception {
+        SecurityContextHolder.setUserId("1001");
+        when(defaultAssetAppService.generateReplacement(any(), eq("1001"))).thenReturn(
+                ImageReplacementUploadResult.builder()
+                        .replacementId("replacement-1")
+                        .objectId("object-1")
+                        .objectKey("images/edd-oss/object-1.png")
+                        .uploadUrl("https://staging")
+                        .httpMethod("PUT")
+                        .contentType("image/png")
+                        .expiresAt(Instant.ofEpochMilli(1762757400000L))
+                        .build());
+        mockMvc.perform(post(BASE_PATH + "/object-1/replacements")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalFilename\":\"v2.png\",\"contentType\":\"image/png\","
+                                + "\"size\":307200}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.replacementId").value("replacement-1"))
+                .andExpect(jsonPath("$.data.objectKey").value("images/edd-oss/object-1.png"))
+                .andExpect(jsonPath("$.data.uploadUrl").value("https://staging"));
+    }
+
+    @Test
+    @DisplayName("完成替换：替换任务不存在返回 404 OSS-404002")
+    void completeReplacementNotFound() throws Exception {
+        SecurityContextHolder.setUserId("1001");
+        when(defaultAssetAppService.completeReplacement(any()))
+                .thenThrow(new OssException(OssErrorCode.REPLACEMENT_NOT_FOUND));
+        mockMvc.perform(post(BASE_PATH + "/object-1/replacements/missing/complete"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(OssErrorCode.REPLACEMENT_NOT_FOUND.getCode()));
     }
 
     @Test

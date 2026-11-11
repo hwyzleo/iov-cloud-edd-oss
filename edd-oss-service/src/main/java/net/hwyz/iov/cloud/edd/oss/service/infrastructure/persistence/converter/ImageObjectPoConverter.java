@@ -39,7 +39,8 @@ public final class ImageObjectPoConverter {
         }
         return ImageObject.restore(po.getId(), po.getObjectId(),
                 toProvider(po.getProvider()), po.getRegion(), po.getBucketName(), po.getObjectKey(),
-                po.getServiceName(), po.getOriginalFilename(), toMimeType(po.getDeclaredContentType()),
+                po.getServiceName(), po.getAssetName(), po.getDescription(),
+                po.getOriginalFilename(), toMimeType(po.getDeclaredContentType()),
                 po.getDeclaredSize() == null ? 0L : po.getDeclaredSize(), toMimeType(po.getActualContentType()),
                 po.getActualSize(), po.getEtag(),
                 po.getPermission() == null ? null : ObjectAccessPermission.valueOf(po.getPermission()),
@@ -84,6 +85,7 @@ public final class ImageObjectPoConverter {
                 .bucketName(imageObject.getBucketName())
                 .objectKey(imageObject.getObjectKey())
                 .serviceName(imageObject.getServiceName())
+                .assetName(imageObject.getAssetName())
                 .originalFilename(imageObject.getOriginalFilename())
                 .declaredContentType(imageObject.getDeclaredContentType().getValue())
                 .declaredSize(imageObject.getDeclaredSize())
@@ -98,6 +100,7 @@ public final class ImageObjectPoConverter {
                 .deleteTime(toDate(imageObject.getDeleteTime()))
                 .deleteBy(imageObject.getDeleteBy())
                 .build();
+        po.setDescription(imageObject.getDescription());
         po.setCreateBy(imageObject.getCreateBy());
         po.setCreateTime(toDate(imageObject.getCreateTime()));
         po.setModifyBy(imageObject.getModifyBy());

@@ -148,6 +148,8 @@ class ServiceImageControllerTest {
         ImageObjectResult result = ImageObjectResult.builder()
                 .objectId("object-id")
                 .serviceName("tsp-account")
+                .assetName("默认用户头像")
+                .description("未设置头像时使用")
                 .originalFilename("avatar.jpg")
                 .objectKey("images/tsp-account/object-id.jpg")
                 .provider("TENCENT_COS")
@@ -176,7 +178,9 @@ class ServiceImageControllerTest {
                 .andExpect(jsonPath("$.uploadTime").value(1762757100000L))
                 .andExpect(jsonPath("$.accessUrl").value("https://example.com/object.jpg"))
                 .andExpect(jsonPath("$.createBy").doesNotExist())
-                .andExpect(jsonPath("$.createTime").doesNotExist());
+                .andExpect(jsonPath("$.createTime").doesNotExist())
+                .andExpect(jsonPath("$.assetName").doesNotExist())
+                .andExpect(jsonPath("$.description").doesNotExist());
         ArgumentCaptor<CompleteImageUploadCmd> captor = ArgumentCaptor.forClass(CompleteImageUploadCmd.class);
         verify(imageAppService).complete(captor.capture());
         assertEquals("tsp-account", captor.getValue().getCallerServiceName());

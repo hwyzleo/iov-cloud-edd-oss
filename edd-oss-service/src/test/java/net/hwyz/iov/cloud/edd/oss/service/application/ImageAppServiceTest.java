@@ -10,11 +10,13 @@ import net.hwyz.iov.cloud.edd.oss.service.application.service.ImageAppService;
 import net.hwyz.iov.cloud.edd.oss.service.common.exception.OssErrorCode;
 import net.hwyz.iov.cloud.edd.oss.service.common.exception.OssException;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.aggregate.ImageObject;
+import net.hwyz.iov.cloud.edd.oss.service.domain.model.aggregate.ImageReplacement;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.enums.ImageMimeType;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.enums.ImageStatus;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.enums.ObjectAccessPermission;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.enums.StorageProvider;
 import net.hwyz.iov.cloud.edd.oss.service.domain.repository.ImageObjectRepository;
+import net.hwyz.iov.cloud.edd.oss.service.domain.repository.ImageReplacementRepository;
 import net.hwyz.iov.cloud.edd.oss.service.infrastructure.config.CosProperties;
 import net.hwyz.iov.cloud.edd.oss.service.infrastructure.config.ImageProperties;
 import net.hwyz.iov.cloud.edd.oss.service.infrastructure.gateway.cos.CosObjectMetadata;
@@ -61,12 +63,14 @@ class ImageAppServiceTest {
             "images/tsp-account/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.jpg");
 
     private ImageObjectRepository repository;
+    private ImageReplacementRepository replacementRepository;
     private ObjectStorageGateway gateway;
     private ImageAppService imageAppService;
 
     @BeforeEach
     void setUp() {
         repository = mock(ImageObjectRepository.class);
+        replacementRepository = mock(ImageReplacementRepository.class);
         gateway = mock(ObjectStorageGateway.class);
         CosProperties cosProperties = new CosProperties();
         cosProperties.setRegion(REGION);
@@ -74,7 +78,8 @@ class ImageAppServiceTest {
         cosProperties.setSecretId("test-secret-id");
         cosProperties.setSecretKey("test-secret-key");
         ImageProperties imageProperties = new ImageProperties();
-        imageAppService = new ImageAppService(repository, gateway, cosProperties, imageProperties);
+        imageAppService = new ImageAppService(repository, replacementRepository, gateway, cosProperties,
+                imageProperties);
         when(gateway.generateUploadUrl(anyString(), anyString(), anyString(), any())).thenReturn("https://signed-url");
         when(gateway.buildPublicUrl(anyString(), anyString(), anyString()))
                 .thenAnswer(invocation -> PUBLIC_URL_PREFIX + invocation.getArgument(2));
@@ -387,6 +392,45 @@ class ImageAppServiceTest {
     }
 
     @Test
+    @DisplayName("删除遇到 PENDING 替换任务时先取消任务再删除图片")
+    void deleteCancelsPendingReplacement() {
+        ImageObject imageObject = uploaded();
+        ImageReplacement replacement = activeReplacement(true);
+        when(repository.findByObjectId("object")).thenReturn(Optional.of(imageObject));
+        when(replacementRepository.findActiveByObjectId("object")).thenReturn(Optional.of(replacement));
+        when(replacementRepository.updatePendingToCancelled(replacement)).thenReturn(true);
+        when(repository.updateUploadedToDeleted(imageObject)).thenReturn(true);
+        imageAppService.delete("object", "1001");
+        verify(replacementRepository).updatePendingToCancelled(replacement);
+        verify(gateway).deleteObject(BUCKET, objectKey());
+        assertTrue(replacement.isCancelled());
+    }
+
+    @Test
+    @DisplayName("删除遇到 PROMOTING 替换任务返回 OSS-409004 且不删 COS")
+    void deleteRejectsPromotingReplacement() {
+        when(repository.findByObjectId("object")).thenReturn(Optional.of(uploaded()));
+        when(replacementRepository.findActiveByObjectId("object"))
+                .thenReturn(Optional.of(activeReplacement(false)));
+        OssException exception = assertThrows(OssException.class, () -> imageAppService.delete("object", "1001"));
+        assertEquals(OssErrorCode.REPLACEMENT_CONFLICT, exception.getErrorCode());
+        verify(gateway, never()).deleteObject(anyString(), anyString());
+        verify(repository, never()).updateUploadedToDeleted(any());
+    }
+
+    @Test
+    @DisplayName("取消 PENDING 替换任务条件更新失败返回 OSS-409004")
+    void deleteReportsReplacementCancelConflict() {
+        when(repository.findByObjectId("object")).thenReturn(Optional.of(uploaded()));
+        ImageReplacement replacement = activeReplacement(true);
+        when(replacementRepository.findActiveByObjectId("object")).thenReturn(Optional.of(replacement));
+        when(replacementRepository.updatePendingToCancelled(replacement)).thenReturn(false);
+        OssException exception = assertThrows(OssException.class, () -> imageAppService.delete("object", "1001"));
+        assertEquals(OssErrorCode.REPLACEMENT_CONFLICT, exception.getErrorCode());
+        verify(gateway, never()).deleteObject(anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("删除数据库冲突且重读仍为 UPLOADED 时返回并发冲突")
     void deleteReportsConcurrentConflict() {
         ImageObject imageObject = uploaded();
@@ -525,6 +569,17 @@ class ImageAppServiceTest {
         ImageObject imageObject = uploaded();
         imageObject.markDeleted("1001", Instant.now());
         return imageObject;
+    }
+
+    private ImageReplacement activeReplacement(boolean pending) {
+        ImageReplacement replacement = ImageReplacement.pending(UUID.randomUUID().toString(), "object",
+                "images/edd-oss/replacements/object/replacement.jpg",
+                "images/edd-oss/replacement-backups/object/replacement.jpg", "avatar-v2.jpg",
+                ImageMimeType.IMAGE_JPEG, 102400L, Instant.now().plusSeconds(900), "1001", Instant.now());
+        if (!pending) {
+            replacement.startPromoting(ImageMimeType.IMAGE_JPEG, 102400L, "etag", "1001", Instant.now());
+        }
+        return replacement;
     }
 
 }

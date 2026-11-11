@@ -33,6 +33,10 @@ public enum OssErrorCode implements ErrorCode {
      */
     INVALID_DECLARED_SIZE("OSS-400103", "Declared image size is out of range", HttpStatus.BAD_REQUEST),
     /**
+     * 素材名称或备注非法
+     */
+    ASSET_INVALID("OSS-400104", "Asset name or description is invalid", HttpStatus.BAD_REQUEST),
+    /**
      * 调用方身份缺失或非法
      */
     INVALID_TOKEN("OSS-401001", "Caller identity is missing or invalid", HttpStatus.UNAUTHORIZED),
@@ -40,6 +44,10 @@ public enum OssErrorCode implements ErrorCode {
      * objectId 不存在，或任务不属于当前调用方
      */
     OBJECT_NOT_FOUND("OSS-404001", "Image object not found", HttpStatus.NOT_FOUND),
+    /**
+     * replacementId 不存在或不属于 objectId
+     */
+    REPLACEMENT_NOT_FOUND("OSS-404002", "Image replacement task not found", HttpStatus.NOT_FOUND),
     /**
      * PENDING 任务已过期
      */
@@ -52,6 +60,10 @@ public enum OssErrorCode implements ErrorCode {
      * 非幂等并发状态冲突
      */
     CONCURRENT_CONFLICT("OSS-409003", "Concurrent image state conflict", HttpStatus.CONFLICT),
+    /**
+     * 活动替换、提升中操作或其他并发冲突
+     */
+    REPLACEMENT_CONFLICT("OSS-409004", "Image replacement conflict", HttpStatus.CONFLICT),
     /**
      * COS 对象尚不存在
      */

@@ -48,6 +48,24 @@ public interface ImageObjectRepository {
     boolean updateUploadedToDeleted(ImageObject imageObject);
 
     /**
+     * 条件更新默认素材名称与备注（object_id + status=UPLOADED + row_version）。
+     *
+     * @param imageObject 图片对象
+     * @return 是否更新成功
+     */
+    boolean updateUploadedAsset(ImageObject imageObject);
+
+    /**
+     * 条件更新替换后的图片元数据（object_id + status=UPLOADED + row_version）。
+     * <p>
+     * 由 {@code ImageReplacementTxService} 在本地事务中调用，与替换任务完成为原子提交。
+     *
+     * @param imageObject 图片对象
+     * @return 是否更新成功
+     */
+    boolean updateUploadedToReplaced(ImageObject imageObject);
+
+    /**
      * 条件搜索（数据库物理分页由调用侧分页插件驱动）。
      *
      * @param criteria 搜索条件

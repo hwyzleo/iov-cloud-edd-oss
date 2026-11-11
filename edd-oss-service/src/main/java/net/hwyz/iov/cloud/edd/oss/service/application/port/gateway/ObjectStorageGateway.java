@@ -42,6 +42,18 @@ public interface ObjectStorageGateway {
     void deleteObject(String bucket, String key);
 
     /**
+     * 受控对象复制：同 Bucket 复制也显式传递源与目标 Bucket（EDD-OSS-DSN-CR-002 §8.1）。
+     *
+     * @param sourceBucket      源 Bucket
+     * @param sourceKey         源对象键
+     * @param destinationBucket 目标 Bucket
+     * @param destinationKey    目标对象键
+     * @param expectedSourceEtag 源对象 ETag 一致性条件；为空时不设置条件
+     */
+    void copyObject(String sourceBucket, String sourceKey, String destinationBucket, String destinationKey,
+                    String expectedSourceEtag);
+
+    /**
      * 构建公开访问地址。
      *
      * @param region COS 地域

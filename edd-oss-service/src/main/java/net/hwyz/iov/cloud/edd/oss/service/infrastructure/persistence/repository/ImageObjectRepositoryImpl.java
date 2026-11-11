@@ -65,6 +65,7 @@ public class ImageObjectRepositoryImpl implements ImageObjectRepository {
 
     @Override
     public boolean updatePendingToUploaded(ImageObject imageObject) {
+        String modifier = modifierOf(imageObject);
         Timestamp now = imageObject.getModifyTime() == null ? new Timestamp(System.currentTimeMillis())
                 : Timestamp.from(imageObject.getModifyTime());
         LambdaUpdateWrapper<ImageObjectPo> wrapper = new LambdaUpdateWrapper<ImageObjectPo>()
@@ -74,7 +75,7 @@ public class ImageObjectRepositoryImpl implements ImageObjectRepository {
                 .set(ImageObjectPo::getEtag, imageObject.getEtag())
                 .set(ImageObjectPo::getStatus, ImageStatus.UPLOADED.name())
                 .set(ImageObjectPo::getUploadTime, now)
-                .set(ImageObjectPo::getModifyBy, imageObject.getServiceName())
+                .set(ImageObjectPo::getModifyBy, modifier)
                 .set(ImageObjectPo::getModifyTime, now)
                 .setSql("row_version = row_version + 1")
                 .eq(ImageObjectPo::getObjectId, imageObject.getObjectId())
@@ -82,7 +83,7 @@ public class ImageObjectRepositoryImpl implements ImageObjectRepository {
                 .eq(ImageObjectPo::getRowVersion, imageObject.getRowVersion());
         int rows = imageObjectMapper.update(null, wrapper);
         if (rows > 0) {
-            imageObject.increaseRowVersion(imageObject.getServiceName(),
+            imageObject.increaseRowVersion(modifier,
                     imageObject.getModifyTime() == null ? Instant.now() : imageObject.getModifyTime());
         }
         return rows > 0;
@@ -106,6 +107,56 @@ public class ImageObjectRepositoryImpl implements ImageObjectRepository {
         if (rows > 0) {
             imageObject.increaseRowVersion(imageObject.getDeleteBy(),
                     imageObject.getDeleteTime() == null ? Instant.now() : imageObject.getDeleteTime());
+        }
+        return rows > 0;
+    }
+
+    @Override
+    public boolean updateUploadedAsset(ImageObject imageObject) {
+        String modifier = modifierOf(imageObject);
+        Timestamp now = imageObject.getModifyTime() == null ? new Timestamp(System.currentTimeMillis())
+                : Timestamp.from(imageObject.getModifyTime());
+        LambdaUpdateWrapper<ImageObjectPo> wrapper = new LambdaUpdateWrapper<ImageObjectPo>()
+                .set(ImageObjectPo::getAssetName, imageObject.getAssetName())
+                .set(ImageObjectPo::getDescription, imageObject.getDescription())
+                .set(ImageObjectPo::getModifyBy, modifier)
+                .set(ImageObjectPo::getModifyTime, now)
+                .setSql("row_version = row_version + 1")
+                .eq(ImageObjectPo::getObjectId, imageObject.getObjectId())
+                .eq(ImageObjectPo::getStatus, ImageStatus.UPLOADED.name())
+                .eq(ImageObjectPo::getRowVersion, imageObject.getRowVersion());
+        int rows = imageObjectMapper.update(null, wrapper);
+        if (rows > 0) {
+            imageObject.increaseRowVersion(modifier,
+                    imageObject.getModifyTime() == null ? Instant.now() : imageObject.getModifyTime());
+        }
+        return rows > 0;
+    }
+
+    @Override
+    public boolean updateUploadedToReplaced(ImageObject imageObject) {
+        String modifier = modifierOf(imageObject);
+        Timestamp now = imageObject.getModifyTime() == null ? new Timestamp(System.currentTimeMillis())
+                : Timestamp.from(imageObject.getModifyTime());
+        Timestamp uploadTime = imageObject.getUploadTime() == null ? now : Timestamp.from(imageObject.getUploadTime());
+        LambdaUpdateWrapper<ImageObjectPo> wrapper = new LambdaUpdateWrapper<ImageObjectPo>()
+                .set(ImageObjectPo::getOriginalFilename, imageObject.getOriginalFilename())
+                .set(ImageObjectPo::getDeclaredSize, imageObject.getDeclaredSize())
+                .set(ImageObjectPo::getActualContentType,
+                        ImageObjectPoConverter.toMimeValue(imageObject.getActualContentType()))
+                .set(ImageObjectPo::getActualSize, imageObject.getActualSize())
+                .set(ImageObjectPo::getEtag, imageObject.getEtag())
+                .set(ImageObjectPo::getUploadTime, uploadTime)
+                .set(ImageObjectPo::getModifyBy, modifier)
+                .set(ImageObjectPo::getModifyTime, now)
+                .setSql("row_version = row_version + 1")
+                .eq(ImageObjectPo::getObjectId, imageObject.getObjectId())
+                .eq(ImageObjectPo::getStatus, ImageStatus.UPLOADED.name())
+                .eq(ImageObjectPo::getRowVersion, imageObject.getRowVersion());
+        int rows = imageObjectMapper.update(null, wrapper);
+        if (rows > 0) {
+            imageObject.increaseRowVersion(modifier,
+                    imageObject.getModifyTime() == null ? Instant.now() : imageObject.getModifyTime());
         }
         return rows > 0;
     }
@@ -143,6 +194,17 @@ public class ImageObjectRepositoryImpl implements ImageObjectRepository {
         }
         wrapper.orderByDesc(ImageObjectPo::getId);
         return ImageObjectPoConverter.toDomainList(imageObjectMapper.selectList(wrapper));
+    }
+
+    /**
+     * 取修改人：领域方法已显式记录操作人时优先使用，否则回退为服务名。
+     *
+     * @param imageObject 图片对象
+     * @return 修改人
+     */
+    private static String modifierOf(ImageObject imageObject) {
+        String modifyBy = imageObject.getModifyBy();
+        return modifyBy == null || modifyBy.isBlank() ? imageObject.getServiceName() : modifyBy;
     }
 
     /**

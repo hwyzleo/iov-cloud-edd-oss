@@ -52,7 +52,15 @@ public class ImageValidationException extends RuntimeException {
         /**
          * 实际 MIME 非法或与声明不一致
          */
-        ACTUAL_MIME_INVALID
+        ACTUAL_MIME_INVALID,
+        /**
+         * 素材名称或备注非法
+         */
+        INVALID_ASSET,
+        /**
+         * 替换图片格式与原图片实际 MIME 不一致
+         */
+        REPLACEMENT_MIME_MISMATCH
     }
 
 }

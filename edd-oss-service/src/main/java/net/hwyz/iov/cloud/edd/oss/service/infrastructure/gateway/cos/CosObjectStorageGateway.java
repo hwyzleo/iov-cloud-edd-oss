@@ -4,6 +4,7 @@ import com.qcloud.cos.COSClient;
 import com.qcloud.cos.exception.CosClientException;
 import com.qcloud.cos.exception.CosServiceException;
 import com.qcloud.cos.http.HttpMethodName;
+import com.qcloud.cos.model.CopyObjectRequest;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.model.ObjectMetadata;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -33,6 +35,8 @@ import java.util.stream.Collectors;
 public class CosObjectStorageGateway implements ObjectStorageGateway {
 
     private static final int NOT_FOUND_STATUS = 404;
+    private static final int PRECONDITION_FAILED_STATUS = 412;
+    private static final int CONFLICT_STATUS = 409;
 
     private final COSClient cosClient;
 
@@ -85,6 +89,33 @@ public class CosObjectStorageGateway implements ObjectStorageGateway {
         } catch (CosClientException exception) {
             log.error("COS 删除客户端异常 bucket[{}] key[{}]", bucket, key, exception);
             throw new OssException(OssErrorCode.STORAGE_ERROR, "failed to delete object", exception);
+        }
+    }
+
+    @Override
+    public void copyObject(String sourceBucket, String sourceKey, String destinationBucket, String destinationKey,
+                           String expectedSourceEtag) {
+        CopyObjectRequest request = new CopyObjectRequest(sourceBucket, sourceKey, destinationBucket, destinationKey);
+        if (expectedSourceEtag != null && !expectedSourceEtag.isBlank()) {
+            // 条件复制：源对象 ETag 不一致时由 COS 返回失败，避免在对象已被覆盖时错写备份
+            request.setMatchingETagConstraints(List.of(expectedSourceEtag));
+        }
+        try {
+            cosClient.copyObject(request);
+        } catch (CosServiceException exception) {
+            int statusCode = exception.getStatusCode();
+            if (statusCode == PRECONDITION_FAILED_STATUS || statusCode == CONFLICT_STATUS) {
+                log.warn("COS 复制条件冲突 sourceKey[{}] destinationKey[{}] status[{}]", sourceKey, destinationKey,
+                        statusCode);
+                throw new OssException(OssErrorCode.REPLACEMENT_CONFLICT, "object copy precondition failed",
+                        exception);
+            }
+            log.error("COS 复制失败 sourceKey[{}] destinationKey[{}] status[{}]", sourceKey, destinationKey,
+                    statusCode, exception);
+            throw new OssException(OssErrorCode.STORAGE_ERROR, "failed to copy object", exception);
+        } catch (CosClientException exception) {
+            log.error("COS 复制客户端异常 sourceKey[{}] destinationKey[{}]", sourceKey, destinationKey, exception);
+            throw new OssException(OssErrorCode.STORAGE_ERROR, "failed to copy object", exception);
         }
     }
 

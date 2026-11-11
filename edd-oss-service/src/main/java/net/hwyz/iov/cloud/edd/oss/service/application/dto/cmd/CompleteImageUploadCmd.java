@@ -20,5 +20,9 @@ public class CompleteImageUploadCmd {
 
     private String objectId;
     private String callerServiceName;
+    /**
+     * 后台管理操作人；Service API 为空时由仓储回退为调用方服务名（EDD-OSS-DSN-CR-002 §9.2）
+     */
+    private String operator;
 
 }

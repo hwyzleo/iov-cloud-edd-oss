@@ -49,6 +49,9 @@ public class ImageObjectPo extends BasePo {
     @TableField("service_name")
     private String serviceName;
 
+    @TableField("asset_name")
+    private String assetName;
+
     @TableField("original_filename")
     private String originalFilename;
 

@@ -12,12 +12,14 @@ import net.hwyz.iov.cloud.edd.oss.service.common.exception.OssErrorCode;
 import net.hwyz.iov.cloud.edd.oss.service.common.exception.OssException;
 import net.hwyz.iov.cloud.edd.oss.service.domain.exception.ImageValidationException;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.aggregate.ImageObject;
+import net.hwyz.iov.cloud.edd.oss.service.domain.model.aggregate.ImageReplacement;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.enums.ImageMimeType;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.enums.ImageStatus;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.enums.ObjectAccessPermission;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.enums.StorageProvider;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.query.ImageObjectSearchCriteria;
 import net.hwyz.iov.cloud.edd.oss.service.domain.repository.ImageObjectRepository;
+import net.hwyz.iov.cloud.edd.oss.service.domain.repository.ImageReplacementRepository;
 import net.hwyz.iov.cloud.edd.oss.service.domain.service.ImageValidationPolicy;
 import net.hwyz.iov.cloud.edd.oss.service.infrastructure.config.CosProperties;
 import net.hwyz.iov.cloud.edd.oss.service.infrastructure.config.ImageProperties;
@@ -44,6 +46,7 @@ public class ImageAppService {
     private static final String HTTP_METHOD_PUT = "PUT";
 
     private final ImageObjectRepository imageObjectRepository;
+    private final ImageReplacementRepository imageReplacementRepository;
     private final ObjectStorageGateway objectStorageGateway;
     private final CosProperties cosProperties;
     private final ImageProperties imageProperties;
@@ -131,7 +134,9 @@ public class ImageAppService {
             deleteInvalidObject(imageObject);
             throw mapValidationFailure(exception);
         }
-        imageObject.markUploaded(actualMimeType, metadata.getContentLength(), metadata.getEtag(), now);
+        String modifier = cmd.getOperator() == null || cmd.getOperator().isBlank()
+                ? cmd.getCallerServiceName() : cmd.getOperator();
+        imageObject.markUploaded(actualMimeType, metadata.getContentLength(), metadata.getEtag(), modifier, now);
         boolean updated = imageObjectRepository.updatePendingToUploaded(imageObject);
         if (updated) {
             log.info("图片上传确认成功 objectId[{}] serviceName[{}]", imageObject.getObjectId(),
@@ -160,6 +165,7 @@ public class ImageAppService {
         if (!imageObject.isUploaded()) {
             throw new OssException(OssErrorCode.INVALID_STATE);
         }
+        cancelActiveReplacementOnDelete(objectId, operator);
         objectStorageGateway.deleteObject(imageObject.getBucketName(), imageObject.getObjectKey());
         imageObject.markDeleted(operator, Instant.now());
         boolean updated = imageObjectRepository.updateUploadedToDeleted(imageObject);
@@ -233,10 +239,18 @@ public class ImageAppService {
         }
     }
 
-    private ImageObjectResult toResult(ImageObject imageObject) {
+    /**
+     * 将领域对象转换为应用层结果（默认素材用例复用）。
+     *
+     * @param imageObject 领域对象
+     * @return 应用层结果
+     */
+    public ImageObjectResult toResult(ImageObject imageObject) {
         return ImageObjectResult.builder()
                 .objectId(imageObject.getObjectId())
                 .serviceName(imageObject.getServiceName())
+                .assetName(imageObject.getAssetName())
+                .description(imageObject.getDescription())
                 .originalFilename(imageObject.getOriginalFilename())
                 .objectKey(imageObject.getObjectKey())
                 .provider(imageObject.getProvider().name())
@@ -286,7 +300,33 @@ public class ImageAppService {
                     exception.getMessage());
             case ACTUAL_SIZE_INVALID -> new OssException(OssErrorCode.ACTUAL_SIZE_INVALID, exception.getMessage());
             case ACTUAL_MIME_INVALID -> new OssException(OssErrorCode.ACTUAL_MIME_INVALID, exception.getMessage());
+            case INVALID_ASSET -> new OssException(OssErrorCode.ASSET_INVALID, exception.getMessage());
+            case REPLACEMENT_MIME_MISMATCH -> new OssException(OssErrorCode.PARAMETER_INVALID,
+                    exception.getMessage());
         };
+    }
+
+    /**
+     * 删除协调（EDD-OSS-DSN-CR-002 §8.6）：PENDING 先条件取消；PROMOTING 拒绝删除。
+     *
+     * @param objectId 目标图片对象标识
+     * @param operator 操作人
+     */
+    private void cancelActiveReplacementOnDelete(String objectId, String operator) {
+        ImageReplacement active = imageReplacementRepository.findActiveByObjectId(objectId).orElse(null);
+        if (active == null) {
+            return;
+        }
+        if (active.isPromoting()) {
+            throw new OssException(OssErrorCode.REPLACEMENT_CONFLICT,
+                    "image replacement is promoting, deletion is not allowed");
+        }
+        active.cancel(operator, Instant.now());
+        if (!imageReplacementRepository.updatePendingToCancelled(active)) {
+            throw new OssException(OssErrorCode.REPLACEMENT_CONFLICT,
+                    "image replacement changed during cancellation");
+        }
+        log.info("图片删除前取消替换任务 objectId[{}] replacementId[{}]", objectId, active.getReplacementId());
     }
 
 }

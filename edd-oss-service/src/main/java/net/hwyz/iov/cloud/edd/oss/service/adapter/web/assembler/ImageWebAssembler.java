@@ -3,7 +3,9 @@ package net.hwyz.iov.cloud.edd.oss.service.adapter.web.assembler;
 import net.hwyz.iov.cloud.edd.oss.api.vo.response.ImageObjectResponse;
 import net.hwyz.iov.cloud.edd.oss.api.vo.response.ImageUploadResponse;
 import net.hwyz.iov.cloud.edd.oss.service.adapter.web.vo.response.ImagePreviewResponse;
+import net.hwyz.iov.cloud.edd.oss.service.adapter.web.vo.response.ImageReplacementUploadResponse;
 import net.hwyz.iov.cloud.edd.oss.service.application.dto.result.ImageObjectResult;
+import net.hwyz.iov.cloud.edd.oss.service.application.dto.result.ImageReplacementUploadResult;
 import net.hwyz.iov.cloud.edd.oss.service.application.dto.result.ImageUploadResult;
 import net.hwyz.iov.cloud.edd.oss.service.domain.model.enums.ImageStatus;
 
@@ -46,6 +48,8 @@ public final class ImageWebAssembler {
      */
     public static ImageObjectResponse toServiceResponse(ImageObjectResult result) {
         ImageObjectResponse response = toResponse(result);
+        response.setAssetName(null);
+        response.setDescription(null);
         response.setDeleteTime(null);
         response.setDeleteBy(null);
         response.setCreateBy(null);
@@ -65,6 +69,8 @@ public final class ImageWebAssembler {
         return ImageObjectResponse.builder()
                 .objectId(result.getObjectId())
                 .serviceName(result.getServiceName())
+                .assetName(result.getAssetName())
+                .description(result.getDescription())
                 .originalFilename(result.getOriginalFilename())
                 .objectKey(result.getObjectKey())
                 .provider(result.getProvider())
@@ -109,6 +115,24 @@ public final class ImageWebAssembler {
 
     private static Long toEpochMilli(Instant instant) {
         return instant == null ? null : instant.toEpochMilli();
+    }
+
+    /**
+     * 替换任务上传结果转响应。
+     *
+     * @param result 应用层结果
+     * @return 替换上传响应
+     */
+    public static ImageReplacementUploadResponse toResponse(ImageReplacementUploadResult result) {
+        return ImageReplacementUploadResponse.builder()
+                .replacementId(result.getReplacementId())
+                .objectId(result.getObjectId())
+                .objectKey(result.getObjectKey())
+                .uploadUrl(result.getUploadUrl())
+                .httpMethod(result.getHttpMethod())
+                .contentType(result.getContentType())
+                .expiresAt(toEpochMilli(result.getExpiresAt()))
+                .build();
     }
 
 }

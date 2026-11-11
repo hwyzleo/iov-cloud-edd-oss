@@ -22,6 +22,14 @@ public class ImageObjectResult {
 
     private String objectId;
     private String serviceName;
+    /**
+     * 默认素材名称；业务图片为空
+     */
+    private String assetName;
+    /**
+     * 默认素材备注
+     */
+    private String description;
     private String originalFilename;
     private String objectKey;
     private String provider;
