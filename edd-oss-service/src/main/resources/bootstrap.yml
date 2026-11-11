@@ -21,3 +21,4 @@ spring:
         shared-configs:
           - application.yaml
           - mysql.yaml
+          - redis.yaml
