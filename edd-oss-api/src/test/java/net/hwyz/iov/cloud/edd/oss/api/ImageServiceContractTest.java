@@ -44,11 +44,15 @@ class ImageServiceContractTest {
     @Test
     @DisplayName("Feign 客户端契约：服务名、路径和降级工厂固定")
     void feignClientContract() {
+        // value/name 为 @AliasFor 别名，且此处使用常量引用，需用合并注解解析真实服务名
         org.springframework.cloud.openfeign.FeignClient feignClient =
-                ImageService.class.getAnnotation(org.springframework.cloud.openfeign.FeignClient.class);
+                org.springframework.core.annotation.AnnotatedElementUtils
+                        .getMergedAnnotation(ImageService.class, org.springframework.cloud.openfeign.FeignClient.class);
         assertNotNull(feignClient);
-        assertEquals("oss-service", feignClient.name());
-        assertEquals("imageService", feignClient.contextId());
+        assertEquals(net.hwyz.iov.cloud.framework.common.constant.ServiceNameConstants.EDD_OSS,
+                feignClient.name(), "服务发现名必须与 OSS 注册名（edd-oss）一致");
+        assertEquals("imageService", feignClient.contextId(),
+                "contextId 是调用方 Feign 配置键（spring.cloud.openfeign.client.config.imageService.*）");
         assertEquals("/api/service/image/v1", feignClient.path());
         assertEquals(ImageServiceFallbackFactory.class, feignClient.fallbackFactory());
     }
