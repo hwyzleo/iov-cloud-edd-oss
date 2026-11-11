@@ -4,6 +4,7 @@ import net.hwyz.iov.cloud.edd.oss.api.fallback.ImageServiceFallbackFactory;
 import net.hwyz.iov.cloud.edd.oss.api.vo.request.GenerateImageUploadRequest;
 import net.hwyz.iov.cloud.edd.oss.api.vo.response.ImageObjectResponse;
 import net.hwyz.iov.cloud.edd.oss.api.vo.response.ImageUploadResponse;
+import net.hwyz.iov.cloud.framework.common.constant.ServiceNameConstants;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  *
  * @author hwyz_leo
  */
-@FeignClient(name = "oss-service", contextId = "imageService", path = "/api/service/image/v1",
+@FeignClient(contextId = "imageService", value = ServiceNameConstants.EDD_OSS, path = "/api/service/image/v1",
         fallbackFactory = ImageServiceFallbackFactory.class)
 public interface ImageService {
 
