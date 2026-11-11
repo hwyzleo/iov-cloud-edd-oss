@@ -276,14 +276,17 @@ public class ImageObject {
     }
 
     /**
-     * 后台删除：UPLOADED → DELETED。
+     * 后台删除：PENDING 或 UPLOADED → DELETED。
+     * <p>
+     * BUGFIX-001（CR-002 修订）：允许管理人员清理未完成确认的上传任务，
+     * 避免失败记录永久滞留；迟到完成确认仍会被拒绝。
      *
      * @param operator 操作人员
      * @param now      删除时间
      */
     public void markDeleted(String operator, Instant now) {
-        if (status != ImageStatus.UPLOADED) {
-            throw new IllegalStateException("image object " + objectId + " is not UPLOADED");
+        if (status != ImageStatus.UPLOADED && status != ImageStatus.PENDING) {
+            throw new IllegalStateException("image object " + objectId + " is not PENDING or UPLOADED");
         }
         this.status = ImageStatus.DELETED;
         this.deleteBy = operator;

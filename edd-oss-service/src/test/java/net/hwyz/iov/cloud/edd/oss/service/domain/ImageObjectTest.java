@@ -51,11 +51,13 @@ class ImageObjectTest {
     }
 
     @Test
-    @DisplayName("PENDING 不能直接 DELETED")
-    void pendingCannotBeDeleted() {
+    @DisplayName("PENDING 可由管理人员清理为 DELETED（BUGFIX-001）")
+    void pendingCanBeDeletedAsCleanup() {
         ImageObject imageObject = pending(NOW.plusSeconds(900));
-        assertThrows(IllegalStateException.class, () -> imageObject.markDeleted("1", NOW));
-        assertEquals(ImageStatus.PENDING, imageObject.getStatus());
+        imageObject.markDeleted("1001", NOW.plusSeconds(5));
+        assertTrue(imageObject.isDeleted());
+        assertEquals("1001", imageObject.getDeleteBy());
+        assertEquals(NOW.plusSeconds(5), imageObject.getDeleteTime());
     }
 
     @Test

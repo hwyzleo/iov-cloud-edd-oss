@@ -144,14 +144,13 @@ class MptImageControllerTest {
     }
 
     @Test
-    @DisplayName("删除：PENDING 返回 409 OSS-409002")
-    void removePendingRejected() throws Exception {
+    @DisplayName("删除：PENDING 清理由应用层统一处理，控制器不额外拦截")
+    void removePendingDelegated() throws Exception {
         SecurityContextHolder.setUserId("1001");
-        org.mockito.Mockito.doThrow(new OssException(OssErrorCode.INVALID_STATE))
-                .when(imageAppService).delete("object-1", "1001");
+        SecurityContextHolder.setUserName("admin");
         mockMvc.perform(delete(BASE_PATH + "/object-1"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value(OssErrorCode.INVALID_STATE.getCode()));
+                .andExpect(status().isOk());
+        verify(imageAppService).delete("object-1", "1001");
     }
 
     @Test

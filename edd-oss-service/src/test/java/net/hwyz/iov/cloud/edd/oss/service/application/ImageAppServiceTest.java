@@ -331,12 +331,52 @@ class ImageAppServiceTest {
     }
 
     @Test
-    @DisplayName("PENDING 拒绝删除，不调用 COS")
-    void deleteRejectsPending() {
-        when(repository.findByObjectId("object")).thenReturn(Optional.of(pending(Instant.now().plusSeconds(900))));
-        OssException exception = assertThrows(OssException.class, () -> imageAppService.delete("object", "1"));
-        assertEquals(OssErrorCode.INVALID_STATE, exception.getErrorCode());
-        verify(gateway, never()).deleteObject(anyString(), anyString());
+    @DisplayName("PENDING 记录可由管理人员清理：COS 幂等删除后置为 DELETED（BUGFIX-001）")
+    void deleteCleansPendingRecord() {
+        ImageObject imageObject = pending(Instant.now().plusSeconds(900));
+        when(repository.findByObjectId("object")).thenReturn(Optional.of(imageObject));
+        when(repository.updatePendingToDeleted(imageObject)).thenReturn(true);
+        imageAppService.delete("object", "1001");
+        verify(gateway).deleteObject(BUCKET, objectKey());
+        verify(repository).updatePendingToDeleted(imageObject);
+        verify(repository, never()).updateUploadedToDeleted(any());
+        assertTrue(imageObject.isDeleted());
+        assertEquals("1001", imageObject.getDeleteBy());
+    }
+
+    @Test
+    @DisplayName("PENDING 清理时 COS 删除失败则保持 PENDING")
+    void deletePendingKeepsPendingOnCosFailure() {
+        ImageObject imageObject = pending(Instant.now().plusSeconds(900));
+        when(repository.findByObjectId("object")).thenReturn(Optional.of(imageObject));
+        org.mockito.Mockito.doThrow(new OssException(OssErrorCode.STORAGE_ERROR))
+                .when(gateway).deleteObject(BUCKET, objectKey());
+        OssException exception = assertThrows(OssException.class, () -> imageAppService.delete("object", "1001"));
+        assertEquals(OssErrorCode.STORAGE_ERROR, exception.getErrorCode());
+        assertTrue(imageObject.isPending());
+        verify(repository, never()).updatePendingToDeleted(any());
+    }
+
+    @Test
+    @DisplayName("PENDING 清理数据库冲突后重读 DELETED 视为成功")
+    void deletePendingRetrySucceedsWhenAlreadyDeleted() {
+        ImageObject imageObject = pending(Instant.now().plusSeconds(900));
+        when(repository.findByObjectId("object"))
+                .thenReturn(Optional.of(imageObject), Optional.of(deleted()));
+        when(repository.updatePendingToDeleted(imageObject)).thenReturn(false);
+        imageAppService.delete("object", "1001");
+        verify(gateway).deleteObject(BUCKET, objectKey());
+    }
+
+    @Test
+    @DisplayName("PENDING 清理数据库冲突且重读仍为 PENDING 时返回并发冲突")
+    void deletePendingReportsConcurrentConflict() {
+        ImageObject imageObject = pending(Instant.now().plusSeconds(900));
+        when(repository.findByObjectId("object"))
+                .thenReturn(Optional.of(imageObject), Optional.of(pending(Instant.now().plusSeconds(900))));
+        when(repository.updatePendingToDeleted(imageObject)).thenReturn(false);
+        OssException exception = assertThrows(OssException.class, () -> imageAppService.delete("object", "1001"));
+        assertEquals(OssErrorCode.CONCURRENT_CONFLICT, exception.getErrorCode());
     }
 
     @Test

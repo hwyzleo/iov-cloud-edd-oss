@@ -124,6 +124,8 @@ public class ImageAppService {
         CosObjectMetadata metadata = objectStorageGateway.headObject(imageObject.getBucketName(),
                 imageObject.getObjectKey());
         if (metadata == null) {
+            log.warn("图片对象尚未上传 objectId[{}] bucket[{}] key[{}]", imageObject.getObjectId(),
+                    imageObject.getBucketName(), imageObject.getObjectKey());
             throw new OssException(OssErrorCode.IMAGE_NOT_UPLOADED);
         }
         ImageMimeType actualMimeType;
@@ -162,6 +164,10 @@ public class ImageAppService {
         if (imageObject.isDeleted()) {
             return;
         }
+        if (imageObject.isPending()) {
+            deletePending(objectId, imageObject, operator);
+            return;
+        }
         if (!imageObject.isUploaded()) {
             throw new OssException(OssErrorCode.INVALID_STATE);
         }
@@ -171,6 +177,32 @@ public class ImageAppService {
         boolean updated = imageObjectRepository.updateUploadedToDeleted(imageObject);
         if (updated) {
             log.info("图片对象删除成功 objectId[{}] operator[{}]", objectId, operator);
+            return;
+        }
+        ImageObject latest = imageObjectRepository.findByObjectId(objectId)
+                .orElseThrow(() -> new OssException(OssErrorCode.OBJECT_NOT_FOUND));
+        if (latest.isDeleted()) {
+            return;
+        }
+        throw new OssException(OssErrorCode.CONCURRENT_CONFLICT);
+    }
+
+    /**
+     * 清理未完成确认的上传任务（CR-002 BUGFIX-001）。
+     * <p>
+     * COS 对象可能尚未存在，删除按幂等处理；失败时保持 PENDING，允许管理人员重试。
+     *
+     * @param objectId    对象标识
+     * @param imageObject 待上传图片对象
+     * @param operator    操作人员
+     */
+    private void deletePending(String objectId, ImageObject imageObject, String operator) {
+        cancelActiveReplacementOnDelete(objectId, operator);
+        objectStorageGateway.deleteObject(imageObject.getBucketName(), imageObject.getObjectKey());
+        imageObject.markDeleted(operator, Instant.now());
+        boolean updated = imageObjectRepository.updatePendingToDeleted(imageObject);
+        if (updated) {
+            log.info("待上传图片对象删除成功 objectId[{}] operator[{}]", objectId, operator);
             return;
         }
         ImageObject latest = imageObjectRepository.findByObjectId(objectId)

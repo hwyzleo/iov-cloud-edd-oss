@@ -146,6 +146,25 @@ class ImageObjectRepositoryIT {
     }
 
     @Test
+    @DisplayName("PENDING → DELETED 条件更新校验状态与 row_version（BUGFIX-001）")
+    void updatePendingToDeleted() {
+        ImageObject imageObject = imageObjectRepository.insert(newPending(uniqueId(), uniqueKey()));
+        imageObject.markDeleted("1001", Instant.now());
+        assertTrue(imageObjectRepository.updatePendingToDeleted(imageObject));
+        assertEquals(2, imageObject.getRowVersion());
+
+        ImageObject persisted = imageObjectRepository.findByObjectId(imageObject.getObjectId()).orElseThrow();
+        assertEquals(ImageStatus.DELETED, persisted.getStatus());
+        assertEquals("1001", persisted.getDeleteBy());
+        assertNotNull(persisted.getDeleteTime());
+        assertNull(persisted.getActualSize());
+        assertEquals(2, persisted.getRowVersion());
+
+        // 状态已非 PENDING，再次条件更新必须失败
+        assertFalse(imageObjectRepository.updatePendingToDeleted(imageObject));
+    }
+
+    @Test
     @DisplayName("UPLOADED → DELETED 条件更新保留 row_valid=1 与全部元数据")
     void updateUploadedToDeleted() throws Exception {
         ImageObject imageObject = imageObjectRepository.insert(newPending(uniqueId(), uniqueKey()));

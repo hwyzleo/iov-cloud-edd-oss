@@ -112,6 +112,28 @@ public class ImageObjectRepositoryImpl implements ImageObjectRepository {
     }
 
     @Override
+    public boolean updatePendingToDeleted(ImageObject imageObject) {
+        Timestamp now = imageObject.getDeleteTime() == null ? new Timestamp(System.currentTimeMillis())
+                : Timestamp.from(imageObject.getDeleteTime());
+        LambdaUpdateWrapper<ImageObjectPo> wrapper = new LambdaUpdateWrapper<ImageObjectPo>()
+                .set(ImageObjectPo::getStatus, ImageStatus.DELETED.name())
+                .set(ImageObjectPo::getDeleteTime, now)
+                .set(ImageObjectPo::getDeleteBy, imageObject.getDeleteBy())
+                .set(ImageObjectPo::getModifyBy, imageObject.getDeleteBy())
+                .set(ImageObjectPo::getModifyTime, now)
+                .setSql("row_version = row_version + 1")
+                .eq(ImageObjectPo::getObjectId, imageObject.getObjectId())
+                .eq(ImageObjectPo::getStatus, ImageStatus.PENDING.name())
+                .eq(ImageObjectPo::getRowVersion, imageObject.getRowVersion());
+        int rows = imageObjectMapper.update(null, wrapper);
+        if (rows > 0) {
+            imageObject.increaseRowVersion(imageObject.getDeleteBy(),
+                    imageObject.getDeleteTime() == null ? Instant.now() : imageObject.getDeleteTime());
+        }
+        return rows > 0;
+    }
+
+    @Override
     public boolean updateUploadedAsset(ImageObject imageObject) {
         String modifier = modifierOf(imageObject);
         Timestamp now = imageObject.getModifyTime() == null ? new Timestamp(System.currentTimeMillis())

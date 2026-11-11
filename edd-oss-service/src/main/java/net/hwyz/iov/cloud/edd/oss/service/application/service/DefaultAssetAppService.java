@@ -257,6 +257,8 @@ public class DefaultAssetAppService {
         CosObjectMetadata metadata = objectStorageGateway.headObject(imageObject.getBucketName(),
                 replacement.getStagingObjectKey());
         if (metadata == null) {
+            log.warn("替换临时对象尚未上传 objectId[{}] replacementId[{}] key[{}]", imageObject.getObjectId(),
+                    replacement.getReplacementId(), replacement.getStagingObjectKey());
             throw new OssException(OssErrorCode.IMAGE_NOT_UPLOADED, "replacement object has not been uploaded");
         }
         ImageMimeType actualMimeType;

@@ -48,6 +48,16 @@ public interface ImageObjectRepository {
     boolean updateUploadedToDeleted(ImageObject imageObject);
 
     /**
+     * 条件更新 PENDING → DELETED（object_id + status=PENDING + row_version）。
+     * <p>
+     * 用于管理人员清理未完成确认的上传任务（CR-002 BUGFIX-001）。
+     *
+     * @param imageObject 图片对象
+     * @return 是否更新成功
+     */
+    boolean updatePendingToDeleted(ImageObject imageObject);
+
+    /**
      * 条件更新默认素材名称与备注（object_id + status=UPLOADED + row_version）。
      *
      * @param imageObject 图片对象
