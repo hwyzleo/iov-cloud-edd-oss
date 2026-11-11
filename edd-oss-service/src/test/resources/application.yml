@@ -1,0 +1,5 @@
+# 测试环境显式声明 Jackson 时区，满足 FW-WEB 时间治理启动探针（禁止 systemDefault 猜测）
+iov:
+  web:
+    jackson:
+      zone-id: UTC

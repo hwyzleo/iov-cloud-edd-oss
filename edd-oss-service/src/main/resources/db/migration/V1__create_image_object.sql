@@ -1,0 +1,38 @@
+-- EDD-OSS-DSN-CR-001 §6：图片对象表
+CREATE TABLE IF NOT EXISTS `tb_image_object`
+(
+    `id`                    BIGINT       NOT NULL AUTO_INCREMENT COMMENT '内部主键',
+    `object_id`             VARCHAR(36)  NOT NULL COMMENT '外部对象/上传任务标识',
+    `provider`              VARCHAR(32)  NOT NULL COMMENT '存储提供方，固定 TENCENT_COS',
+    `region`                VARCHAR(32)  NOT NULL COMMENT 'COS 地域',
+    `bucket_name`           VARCHAR(128) NOT NULL COMMENT 'COS Bucket',
+    `object_key`            VARCHAR(512) NOT NULL COMMENT 'OSS 生成的唯一对象键',
+    `service_name`          VARCHAR(64)  NOT NULL COMMENT '调用方服务',
+    `original_filename`     VARCHAR(255) NOT NULL COMMENT '原始文件名',
+    `declared_content_type` VARCHAR(64)  NOT NULL COMMENT '声明 MIME',
+    `declared_size`         BIGINT       NOT NULL COMMENT '声明大小',
+    `actual_content_type`   VARCHAR(64)  NULL COMMENT '实际 MIME',
+    `actual_size`           BIGINT       NULL COMMENT '实际大小',
+    `etag`                  VARCHAR(255) NULL COMMENT 'COS ETag',
+    `permission`            VARCHAR(32)  NOT NULL COMMENT '固定公有读私有写',
+    `status`                VARCHAR(16)  NOT NULL COMMENT '状态：PENDING/UPLOADED/DELETED',
+    `expire_time`           TIMESTAMP(3) NOT NULL COMMENT '上传过期时间',
+    `upload_time`           TIMESTAMP(3) NULL COMMENT '完成时间',
+    `delete_time`           TIMESTAMP(3) NULL COMMENT '删除时间',
+    `delete_by`             VARCHAR(64)  NULL COMMENT '删除人',
+    `description`           VARCHAR(255) NULL COMMENT '描述',
+    `create_by`             VARCHAR(64)  NULL COMMENT '创建方服务',
+    `create_time`           TIMESTAMP(3) NOT NULL COMMENT '申请时间',
+    `modify_by`             VARCHAR(64)  NULL COMMENT '最后修改方',
+    `modify_time`           TIMESTAMP(3) NULL COMMENT '最后修改时间',
+    `row_version`           INT          NOT NULL DEFAULT 1 COMMENT '乐观锁',
+    `row_valid`             TINYINT      NOT NULL DEFAULT 1 COMMENT '逻辑有效标记',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_object_id` (`object_id`),
+    UNIQUE KEY `uk_bucket_object_key` (`bucket_name`, `object_key`),
+    KEY `idx_service_status_id` (`service_name`, `status`, `id`),
+    KEY `idx_status_upload_time` (`status`, `upload_time`),
+    KEY `idx_original_filename` (`original_filename`),
+    KEY `idx_create_time` (`create_time`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4 COMMENT ='图片对象表';

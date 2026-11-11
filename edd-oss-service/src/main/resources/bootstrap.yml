@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: edd-oss
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: db/migration
+    table: flyway_schema_history
+    validate-on-migrate: true
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_URL:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:32c13f29-1aa6-468a-bacb-81be7f437dc9}
+      config:
+        server-addr: ${NACOS_URL:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:32c13f29-1aa6-468a-bacb-81be7f437dc9}
+        name: edd-oss
+        file-extension: yaml
+        shared-configs:
+          - application.yaml
+          - mysql.yaml

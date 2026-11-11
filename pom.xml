@@ -6,11 +6,11 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>oss-api</module>
-        <module>oss-service</module>
+        <module>edd-oss-api</module>
+        <module>edd-oss-service</module>
     </modules>
 
-    <groupId>net.hwyz.iov.cloud.tsp</groupId>
+    <groupId>net.hwyz.iov.cloud.edd</groupId>
     <artifactId>oss</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <description>对象存储服务</description>

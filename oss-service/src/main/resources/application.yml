@@ -1,5 +1,0 @@
-server:
-  port: 8080
-
-mybatis-plus:
-  type-aliases-package: net.hwyz.iov.cloud.tsp.oss.service.infrastructure.repository.po

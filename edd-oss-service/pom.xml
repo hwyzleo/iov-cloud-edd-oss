@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>net.hwyz.iov.cloud.parent</groupId>
+        <artifactId>service</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>net.hwyz.iov.cloud.edd</groupId>
+    <artifactId>edd-oss-service</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+
+    <properties>
+        <oss.version>0.0.1-SNAPSHOT</oss.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.edd</groupId>
+            <artifactId>edd-oss-api</artifactId>
+            <version>${oss.version}</version>
+        </dependency>
+
+        <!-- 框架: MySQL -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.framework</groupId>
+            <artifactId>framework-mysql-starter</artifactId>
+        </dependency>
+
+        <!-- 框架: 安全 -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.framework</groupId>
+            <artifactId>framework-security-starter</artifactId>
+        </dependency>
+
+        <!-- 框架: 审计 -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.framework</groupId>
+            <artifactId>framework-audit-starter</artifactId>
+        </dependency>
+
+        <!-- 数据库迁移：Flyway -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
+        <!-- 框架: Kafka -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.framework</groupId>
+            <artifactId>framework-kafka-starter</artifactId>
+        </dependency>
+
+        <!-- 腾讯云 COS SDK：复用平台现有版本，不在本 CR 升级（§8） -->
+        <dependency>
+            <groupId>com.qcloud</groupId>
+            <artifactId>cos_api</artifactId>
+            <version>5.6.155</version>
+        </dependency>
+
+        <!-- 测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <skip>false</skip>
+                    <!-- 显式让 *IT 集成测试被测试执行器发现（无凭据/数据库时由测试自身显式跳过） -->
+                    <includes>
+                        <include>**/*Test.java</include>
+                        <include>**/*IT.java</include>
+                    </includes>
+                    <!-- FW-MYSQL/FW-WEB 时间治理启动探针要求 JVM 时区 UTC（仅测试环境） -->
+                    <systemPropertyVariables>
+                        <user.timezone>UTC</user.timezone>
+                        <!-- 测试不访问 Nacos：配置由 test/resources 与测试属性显式提供 -->
+                        <spring.cloud.nacos.config.enabled>false</spring.cloud.nacos.config.enabled>
+                        <spring.cloud.nacos.discovery.enabled>false</spring.cloud.nacos.discovery.enabled>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
