@@ -15,8 +15,17 @@
 - 参考 Notion Page ID: 4150ec7a4b9280759e6ded81d69e5783
 - 变更记录 Notion Page ID: 4150ec7a4b9280208f5ff8be4d43a88e
 
+# 当前项目系统架构文档
+- 参考 Notion Page ID: 4150ec7a4b92806eaa4ecc793ee4aced
+
+# 当前项目功能架构文档
+- 参考 Notion Page ID: 4150ec7a4b928098a302d19807ec7218
+
 # 当前项目数据库文档
 - 参考 Notion Page ID: 4150ec7a4b92807c89f5cda4902cba18
+
+# 当前项目错误码文档
+- 参考 Notion Page ID: 4190ec7a4b92805fb19ff8af3e33bb18
 
 # graphify
 

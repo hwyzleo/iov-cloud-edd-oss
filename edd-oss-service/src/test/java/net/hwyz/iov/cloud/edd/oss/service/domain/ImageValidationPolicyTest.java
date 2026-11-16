@@ -38,7 +38,7 @@ class ImageValidationPolicyTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"avatar", "avatar.", ".jpg"})
-    @DisplayName("无扩展名被拒绝（OSS-400101 语义）")
+    @DisplayName("无扩展名被拒绝（OSS-811002 语义）")
     void rejectsMissingExtension(String filename) {
         ImageValidationException exception = assertThrows(ImageValidationException.class,
                 () -> ImageValidationPolicy.validateGenerate("tsp-account", filename, "image/jpeg", 1L));
@@ -56,7 +56,7 @@ class ImageValidationPolicyTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"avatar.svg", "avatar.gif", "avatar.bmp", "avatar.heic"})
-    @DisplayName("未声明的 MIME 即使扩展名一致也被拒绝（OSS-400101 语义）")
+    @DisplayName("未声明的 MIME 即使扩展名一致也被拒绝（OSS-811002 语义）")
     void rejectsUnsupportedMimeWithMatchingExtension(String filename) {
         String contentType = "image/" + filename.substring(filename.indexOf('.') + 1);
         ImageValidationException exception = assertThrows(ImageValidationException.class,

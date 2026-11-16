@@ -137,7 +137,7 @@ class DefaultAssetAppServiceTest {
     }
 
     @Test
-    @DisplayName("素材名称为空或超过 100 字符返回 OSS-400104，且不签名、不落库")
+    @DisplayName("素材名称为空或超过 100 字符返回 OSS-811005，且不签名、不落库")
     void generateRejectsInvalidAssetName() {
         assertGenerateFailure(OssErrorCode.ASSET_INVALID, generateCmd("   ", null));
         assertGenerateFailure(OssErrorCode.ASSET_INVALID, generateCmd("a".repeat(101), null));
@@ -146,7 +146,7 @@ class DefaultAssetAppServiceTest {
     }
 
     @Test
-    @DisplayName("备注超过 255 字符返回 OSS-400104")
+    @DisplayName("备注超过 255 字符返回 OSS-811005")
     void generateRejectsInvalidDescription() {
         assertGenerateFailure(OssErrorCode.ASSET_INVALID, generateCmd("素材", "a".repeat(256)));
     }
@@ -224,7 +224,7 @@ class DefaultAssetAppServiceTest {
     }
 
     @Test
-    @DisplayName("存在 PROMOTING 替换任务时编辑返回 OSS-409004")
+    @DisplayName("存在 PROMOTING 替换任务时编辑返回 OSS-811012")
     void updateAssetRejectsPromotingReplacement() {
         when(imageObjectRepository.findByObjectId(OBJECT_ID)).thenReturn(Optional.of(uploadedDefaultAsset()));
         when(imageReplacementRepository.findActiveByObjectId(OBJECT_ID))
@@ -245,7 +245,7 @@ class DefaultAssetAppServiceTest {
     }
 
     @Test
-    @DisplayName("编辑素材名称非法返回 OSS-400104")
+    @DisplayName("编辑素材名称非法返回 OSS-811005")
     void updateAssetRejectsInvalidName() {
         when(imageObjectRepository.findByObjectId(OBJECT_ID)).thenReturn(Optional.of(uploadedDefaultAsset()));
         OssException exception = assertThrows(OssException.class, () -> service.updateAsset(
@@ -291,7 +291,7 @@ class DefaultAssetAppServiceTest {
     }
 
     @Test
-    @DisplayName("已存在活动替换任务时返回 OSS-409004，不签名、不插入")
+    @DisplayName("已存在活动替换任务时返回 OSS-811012，不签名、不插入")
     void generateReplacementRejectsActiveTask() {
         when(imageObjectRepository.findByObjectId(OBJECT_ID)).thenReturn(Optional.of(uploadedDefaultAsset()));
         when(imageReplacementRepository.findActiveByObjectId(OBJECT_ID))
@@ -313,7 +313,7 @@ class DefaultAssetAppServiceTest {
     }
 
     @Test
-    @DisplayName("活动唯一约束冲突返回 OSS-409004")
+    @DisplayName("活动唯一约束冲突返回 OSS-811012")
     void generateReplacementReportsActiveConflict() {
         when(imageObjectRepository.findByObjectId(OBJECT_ID)).thenReturn(Optional.of(uploadedDefaultAsset()));
         when(imageReplacementRepository.findActiveByObjectId(OBJECT_ID)).thenReturn(Optional.empty());
@@ -344,7 +344,7 @@ class DefaultAssetAppServiceTest {
     }
 
     @Test
-    @DisplayName("replacementId 不存在或不属于 objectId 返回 OSS-404002")
+    @DisplayName("replacementId 不存在或不属于 objectId 返回 OSS-811008")
     void completeReplacementNotFound() {
         when(imageReplacementRepository.findByReplacementId(REPLACEMENT_ID)).thenReturn(Optional.empty());
         assertEquals(OssErrorCode.REPLACEMENT_NOT_FOUND, assertCompleteReplacementFailure());
@@ -385,7 +385,7 @@ class DefaultAssetAppServiceTest {
     }
 
     @Test
-    @DisplayName("PENDING 替换任务过期返回 OSS-409001，不上传不改原对象")
+    @DisplayName("PENDING 替换任务过期返回 OSS-811009，不上传不改原对象")
     void completeReplacementRejectsExpired() {
         ImageObject imageObject = uploadedDefaultAsset();
         ImageReplacement expired = ImageReplacement.pending(REPLACEMENT_ID, OBJECT_ID, STAGING_KEY, BACKUP_KEY,

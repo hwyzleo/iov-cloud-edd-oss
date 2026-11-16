@@ -447,7 +447,7 @@ class ImageAppServiceTest {
     }
 
     @Test
-    @DisplayName("删除遇到 PROMOTING 替换任务返回 OSS-409004 且不删 COS")
+    @DisplayName("删除遇到 PROMOTING 替换任务返回 OSS-811012 且不删 COS")
     void deleteRejectsPromotingReplacement() {
         when(repository.findByObjectId("object")).thenReturn(Optional.of(uploaded()));
         when(replacementRepository.findActiveByObjectId("object"))
@@ -459,7 +459,7 @@ class ImageAppServiceTest {
     }
 
     @Test
-    @DisplayName("取消 PENDING 替换任务条件更新失败返回 OSS-409004")
+    @DisplayName("取消 PENDING 替换任务条件更新失败返回 OSS-811012")
     void deleteReportsReplacementCancelConflict() {
         when(repository.findByObjectId("object")).thenReturn(Optional.of(uploaded()));
         ImageReplacement replacement = activeReplacement(true);

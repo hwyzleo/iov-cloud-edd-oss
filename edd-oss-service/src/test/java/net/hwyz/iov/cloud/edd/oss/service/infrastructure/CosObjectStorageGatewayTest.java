@@ -179,7 +179,82 @@ class CosObjectStorageGatewayTest {
     }
 
     @Test
-    @DisplayName("复制条件冲突映射为 OSS-409004，不误判为对象不存在")
+    @DisplayName("日志预签名必须同时携带 Content-Type 与 x-cos-meta-sha256")
+    void generateUploadUrlWithMetadataSignsBothHeaders() throws Exception {
+        when(cosClient.generatePresignedUrl(any(GeneratePresignedUrlRequest.class)))
+                .thenReturn(new URL("https://signed.example.com/log"));
+        String sha256 = "a".repeat(64);
+        Instant expireTime = Instant.parse("2026-11-15T10:15:00Z");
+        String url = gateway.generateUploadUrlWithMetadata(BUCKET, "logs/tsp-ota/OTA_UPGRADE_LOG/20261115/id",
+                "application/gzip", sha256, expireTime);
+        assertEquals("https://signed.example.com/log", url);
+        ArgumentCaptor<GeneratePresignedUrlRequest> captor =
+                ArgumentCaptor.forClass(GeneratePresignedUrlRequest.class);
+        verify(cosClient).generatePresignedUrl(captor.capture());
+        GeneratePresignedUrlRequest request = captor.getValue();
+        assertEquals(HttpMethodName.PUT, request.getMethod());
+        assertEquals("application/gzip", request.getContentType());
+        assertEquals(sha256, request.getCustomRequestHeaders().get("x-cos-meta-sha256"));
+        assertEquals(expireTime.toEpochMilli(), request.getExpiration().getTime());
+    }
+
+    @Test
+    @DisplayName("日志 HEAD 解析 x-cos-meta-sha256 元数据")
+    void headObjectWithMetadataReadsSha256() {
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentType("application/gzip");
+        metadata.setContentLength(1024L);
+        metadata.setHeader("ETag", "\"etag-value\"");
+        metadata.addUserMetadata("sha256", "b".repeat(64));
+        when(cosClient.getObjectMetadata(BUCKET, KEY)).thenReturn(metadata);
+        net.hwyz.iov.cloud.edd.oss.service.application.port.gateway.ObjectHeadMetadata result =
+                gateway.headObjectWithMetadata(BUCKET, KEY);
+        assertEquals("application/gzip", result.getContentType());
+        assertEquals(1024L, result.getContentLength());
+        assertEquals("\"etag-value\"", result.getEtag());
+        assertEquals("b".repeat(64), result.getSha256Hex());
+    }
+
+    @Test
+    @DisplayName("日志 HEAD 缺失摘要元数据时 sha256Hex 为 null")
+    void headObjectWithMetadataWithoutDigest() {
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentType("application/gzip");
+        metadata.setContentLength(1024L);
+        when(cosClient.getObjectMetadata(BUCKET, KEY)).thenReturn(metadata);
+        assertNull(gateway.headObjectWithMetadata(BUCKET, KEY).getSha256Hex());
+    }
+
+    @Test
+    @DisplayName("日志 HEAD 404 与网络异常分别返回 null 与存储错误")
+    void headObjectWithMetadataFailure() {
+        CosServiceException notFound = new CosServiceException("not found");
+        notFound.setStatusCode(404);
+        doThrow(notFound).when(cosClient).getObjectMetadata(BUCKET, KEY);
+        assertNull(gateway.headObjectWithMetadata(BUCKET, KEY));
+
+        doThrow(new CosClientException("timeout")).when(cosClient).getObjectMetadata(BUCKET, KEY);
+        assertEquals(OssErrorCode.STORAGE_ERROR, assertStorageFailure(
+                () -> gateway.headObjectWithMetadata(BUCKET, KEY)));
+    }
+
+    @Test
+    @DisplayName("下载地址使用 GET 与指定过期时间")
+    void generateDownloadUrl() throws Exception {
+        when(cosClient.generatePresignedUrl(any(GeneratePresignedUrlRequest.class)))
+                .thenReturn(new URL("https://signed.example.com/download"));
+        Instant expireTime = Instant.parse("2026-11-15T10:05:00Z");
+        assertEquals("https://signed.example.com/download",
+                gateway.generateDownloadUrl(BUCKET, KEY, expireTime));
+        ArgumentCaptor<GeneratePresignedUrlRequest> captor =
+                ArgumentCaptor.forClass(GeneratePresignedUrlRequest.class);
+        verify(cosClient).generatePresignedUrl(captor.capture());
+        assertEquals(HttpMethodName.GET, captor.getValue().getMethod());
+        assertEquals(expireTime.toEpochMilli(), captor.getValue().getExpiration().getTime());
+    }
+
+    @Test
+    @DisplayName("复制条件冲突映射为 OSS-811012，不误判为对象不存在")
     void copyObjectConflict() {
         CosServiceException conflict = new CosServiceException("precondition failed");
         conflict.setStatusCode(412);

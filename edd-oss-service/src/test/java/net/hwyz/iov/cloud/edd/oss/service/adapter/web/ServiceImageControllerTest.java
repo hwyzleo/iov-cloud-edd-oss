@@ -108,7 +108,7 @@ class ServiceImageControllerTest {
     }
 
     @Test
-    @DisplayName("请求参数非法返回 400 OSS-400001，且不进入应用服务")
+    @DisplayName("请求参数非法返回 400 OSS-811001，且不进入应用服务")
     void rejectsInvalidRequest() throws Exception {
         mockMvc.perform(post(UPLOAD_PATH)
                         .header(CustomHeaders.CALLER_SERVICE_NAME, "tsp-account")

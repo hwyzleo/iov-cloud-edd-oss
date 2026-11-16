@@ -3,9 +3,12 @@ package net.hwyz.iov.cloud.edd.oss.service.integration;
 import net.hwyz.iov.cloud.edd.oss.service.Application;
 import net.hwyz.iov.cloud.edd.oss.service.adapter.web.controller.mpt.MptImageController;
 import net.hwyz.iov.cloud.edd.oss.service.adapter.web.controller.service.ServiceImageController;
+import net.hwyz.iov.cloud.edd.oss.service.adapter.web.controller.service.ServiceLogObjectController;
 import net.hwyz.iov.cloud.edd.oss.service.application.port.gateway.ObjectStorageGateway;
 import net.hwyz.iov.cloud.edd.oss.service.application.service.ImageAppService;
+import net.hwyz.iov.cloud.edd.oss.service.application.service.LogObjectAppService;
 import net.hwyz.iov.cloud.edd.oss.service.domain.repository.ImageObjectRepository;
+import net.hwyz.iov.cloud.edd.oss.service.domain.repository.LogObjectRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
@@ -35,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
         "oss.storage.cos.bucket=it-bucket",
         "oss.storage.cos.secret-id=it-secret-id",
         "oss.storage.cos.secret-key=it-secret-key",
+        "oss.log.bucket=it-log-bucket",
         "spring.kafka.listener.auto-startup=false"
 })
 class ApplicationContextIT {
@@ -50,6 +54,9 @@ class ApplicationContextIT {
         assertNotNull(applicationContext.getBean(ObjectStorageGateway.class));
         assertNotNull(applicationContext.getBean(ServiceImageController.class));
         assertNotNull(applicationContext.getBean(MptImageController.class));
+        assertNotNull(applicationContext.getBean(LogObjectAppService.class));
+        assertNotNull(applicationContext.getBean(LogObjectRepository.class));
+        assertNotNull(applicationContext.getBean(ServiceLogObjectController.class));
         // 框架新增的 X-Caller-Service 自动配置必须在服务内生效
         assertNotNull(applicationContext.getBean("serviceCallerFeignInterceptor"));
     }

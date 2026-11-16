@@ -93,7 +93,7 @@ class MptImageControllerTest {
     }
 
     @Test
-    @DisplayName("详情：不存在返回 404 OSS-404001")
+    @DisplayName("详情：不存在返回 404 OSS-811007")
     void detailNotFound() throws Exception {
         when(imageAppService.detail("missing")).thenThrow(new OssException(OssErrorCode.OBJECT_NOT_FOUND));
         mockMvc.perform(get(BASE_PATH + "/missing"))
@@ -268,7 +268,7 @@ class MptImageControllerTest {
     }
 
     @Test
-    @DisplayName("完成替换：替换任务不存在返回 404 OSS-404002")
+    @DisplayName("完成替换：替换任务不存在返回 404 OSS-811008")
     void completeReplacementNotFound() throws Exception {
         SecurityContextHolder.setUserId("1001");
         when(defaultAssetAppService.completeReplacement(any()))

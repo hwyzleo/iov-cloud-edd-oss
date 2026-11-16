@@ -25,6 +25,21 @@ public interface ObjectStorageGateway {
     String generateUploadUrl(String bucket, String key, String contentType, Instant expireTime);
 
     /**
+     * 生成带强制摘要元数据头的预签名上传地址（EDD-OSS-DSN-CR-003 §5.1）。
+     * <p>
+     * Content-Type 与 {@code x-cos-meta-sha256} 必须同时参与签名；上传时必须原样携带。
+     *
+     * @param bucket            Bucket
+     * @param key               对象键
+     * @param contentType       上传时必须携带的 Content-Type
+     * @param requiredSha256Hex 必须携带的 {@code x-cos-meta-sha256}（64 位小写十六进制）
+     * @param expireTime        过期时间
+     * @return 预签名地址
+     */
+    String generateUploadUrlWithMetadata(String bucket, String key, String contentType, String requiredSha256Hex,
+                                         Instant expireTime);
+
+    /**
      * 读取对象元数据。
      *
      * @param bucket Bucket
@@ -32,6 +47,25 @@ public interface ObjectStorageGateway {
      * @return 元数据；对象不存在时返回 null
      */
     CosObjectMetadata headObject(String bucket, String key);
+
+    /**
+     * 读取对象元数据，并解析强制签名的 {@code x-cos-meta-sha256}（EDD-OSS-DSN-CR-003 §5.1）。
+     *
+     * @param bucket Bucket
+     * @param key    对象键
+     * @return 元数据；对象不存在时返回 null
+     */
+    ObjectHeadMetadata headObjectWithMetadata(String bucket, String key);
+
+    /**
+     * 生成短期预签名下载地址（EDD-OSS-DSN-CR-003 §5.1）。
+     *
+     * @param bucket     Bucket
+     * @param key        对象键
+     * @param expireTime 过期时间
+     * @return 预签名 GET 地址
+     */
+    String generateDownloadUrl(String bucket, String key, Instant expireTime);
 
     /**
      * 删除对象；对象不存在按幂等删除处理。
